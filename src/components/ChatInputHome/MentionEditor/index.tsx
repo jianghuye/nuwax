@@ -23,6 +23,7 @@
  * ```
  */
 
+import classNames from 'classnames';
 import React, {
   useCallback,
   useEffect,
@@ -38,6 +39,8 @@ import type {
   MentionPopupHandle,
 } from '../MentionPopup/types';
 import styles from './index.less';
+
+const cx = classNames.bind(styles);
 
 /**
  * 获取光标相对于视口的位置，并根据期望方向计算弹窗显示位置
@@ -1069,9 +1072,10 @@ const MentionEditor = React.forwardRef<MentionEditorHandle, MentionEditorProps>(
         {/* 可编辑区域 */}
         <div
           ref={editorRef}
-          className={`${styles['mention-editor']} ${className || ''} ${
-            isEditorEmpty ? styles.empty : ''
-          } ${disabled ? styles.disabled : ''}`}
+          className={cx(styles['mention-editor'], className, {
+            [styles.empty]: isEditorEmpty,
+            [styles.disabled]: disabled,
+          })}
           contentEditable={!disabled}
           onInput={handleInput}
           onKeyDown={handleKeyDown}
@@ -1088,7 +1092,7 @@ const MentionEditor = React.forwardRef<MentionEditorHandle, MentionEditorProps>(
           suppressContentEditableWarning
         />
 
-        {/* 提及选择弹窗 */}
+        {/* @提及技能选择弹窗 */}
         <div className={styles['mention-popup-wrapper']}>
           <MentionPopup
             ref={mentionPopupRef}
