@@ -2,9 +2,9 @@
 
 Nuwax AI - Easily build and deploy your private Agentic AI solutions.
 
-Official Website: https://nuwax.com
+Official Website: [https://nuwax.com](https://nuwax.com)
 
-Demo: https://agent.nuwax.com
+Demo: [https://agent.nuwax.com](https://agent.nuwax.com)
 
 [中文文档](README.zh-CN.md)|[English Doc](README.md) | [Contributing](CONTRIBUTING.md) | [Documentation](docs/)
 
@@ -265,7 +265,7 @@ The Nuwax AI Agent Platform consists of multiple interconnected repositories:
 | Repository | Description | URL |
 | --- | --- | --- |
 | **rcoder** | Sandbox & Container Scheduling (includes General Agent Engine) | [https://github.com/nuwax-ai/rcoder](https://github.com/nuwax-ai/rcoder) |
-| **mcp-proxy** | MCP Service (used by nuwaclaw and sandbox) | [https://github.com/nuwax-ai/mcp-proxy](https://github.com/nuwax-ai/mcp-proxy) |
+| **mcp-proxy** | MCP Service (used by sandbox) | [https://github.com/nuwax-ai/mcp-proxy](https://github.com/nuwax-ai/mcp-proxy) |
 | **nuwax-file-server** | File Service (used by sandbox and nuwaclaw, includes skill sync) | [https://github.com/nuwax-ai/nuwax-file-server](https://github.com/nuwax-ai/nuwax-file-server) |
 
 #### **Web Application Development**
