@@ -98,6 +98,11 @@ export interface SingleAgentProps {
   extra?: React.ReactNode;
   publishedItemInfo: SquarePublishedItemInfo;
   onToggleCollectSuccess: (id: number, isCollect: boolean) => void;
+  showUserCount?: boolean;
+  showConvCount?: boolean;
+  showCollectCount?: boolean;
+  collectApi?: (targetId: number) => Promise<any>;
+  unCollectApi?: (targetId: number) => Promise<any>;
 }
 
 // 广场单个组件（插件、工作流等）
