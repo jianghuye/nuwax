@@ -137,6 +137,157 @@ docker run hello-world
 
 If the above commands all run successfully, your Docker environment is ready and you can proceed with Nuwax service deployment.
 
+## Architecture Diagram
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│                           Frontend Layer                                   │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌─────────────────────────┐  │
+│  │  PC Web  │  │   H5     │  │ Mini App │  │  IM (Feishu/DingTalk/  │  │
+│  │          │  │          │  │          │  │   WeCom/Slack)         │  │
+│  └──────────┘  └──────────┘  └──────────┘  └─────────────────────────┘  │
+└────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│                        Access Layer                                        │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────────┐   │
+│  │  REST API    │  │  Long        │  │       WebSocket             │   │
+│  │              │  │ Connection   │  │                             │   │
+│  └──────────────┘  └──────────────┘  └──────────────────────────────┘   │
+└────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│                      Application Layer                                     │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │              Component Library                                       │  │
+│  │  ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ │  │
+│  │  │ Model│ │Know- │ │ Data │ │Plugin│ │ Work-│ │  MCP │ │ Skill│ │  │
+│  │  │      │ │ ledge│ │ Table│ │      │ │ flow │ │      │ │      │ │  │
+│  │  └──────┘ └──────┘ └──────┘ └──────┘ └──────┘ └──────┘ └──────┘ │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │              Management Portal                                        │  │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ │  │
+│  │  │  User    │ │  Audit   │ │  Public  │ │ Content  │ │   Task   │ │  │
+│  │  │Management│ │Management│ │  Model   │ │Management│ │Management│ │  │
+│  │  ├──────────┤ ├──────────┤ ├──────────┤ ├──────────┤ ├──────────┤ │  │
+│  │  │   Log    │ │   Menu   │ │ System   │ │          │ │          │ │  │
+│  │  │  Query   │ │Permission│ │  Config  │ │          │ │          │ │  │
+│  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │              Product Applications                                    │  │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐  │  │
+│  │  │   Web App    │  │   Q&A        │  │    General Agent         │  │  │
+│  │  │              │  │   Agent      │  │                          │  │  │
+│  │  └──────────────┘  └──────────────┘  └──────────────────────────┘  │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│                    Infrastructure Layer                                    │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │                    Lower-level Components                            │  │
+│  │                                                                       │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────────┐ │  │
+│  │  │   Cloud     │  │  nuwaclaw   │  │   General Agent Engine     │ │  │
+│  │  │   Sandbox   │  │   PC Client │  │                            │ │  │
+│  │  │             │  │ (mac/win/   │  │  ┌───────────────────────┐ │  │
+│  │  │             │  │  docker)    │  │  │  MCP Integration      │ │  │
+│  │  │             │  │             │  │  ├───────────────────────┤ │  │
+│  │  │             │  │             │  │  │  File Management     │ │  │
+│  │  │             │  │             │  │  │  Skill Management     │ │  │
+│  │  │             │  │             │  │  │  ACP Adapter Layer    │ │  │
+│  │  │             │  │             │  │  │  ┌─────────────────┐ │ │  │
+│  │  │             │  │             │  │  │  │ Supported Agent:│ │ │  │
+│  │  │             │  │             │  │  │  │ claudecode      │ │ │  │
+│  │  │             │  │             │  │  │  │ opencode        │ │ │  │
+│  │  │             │  │             │  │  │  │ codex           │ │ │  │
+│  │  │             │  │             │  │  │  │ openclaw        │ │ │  │
+│  │  │             │  │             │  │  │  │ kimicli         │ │ │  │
+│  │  │             │  │             │  │  │  └─────────────────┘ │ │  │
+│  │  │             │  │             │  │  ├───────────────────────┤ │  │
+│  │  │             │  │             │  │  │  Browser             │ │  │
+│  │  │             │  │             │  │  │  Automation          │ │  │
+│  │  │             │  │             │  │  │  GUI Automation      │ │  │
+│  │  │             │  │             │  │  │  Network Channel     │ │  │
+│  │  │             │  │             │  │  │  Runtime Integration │ │  │
+│  │  │             │  │             │  │  └───────────────────────┘ │  │
+│  │  │             │  │             │  └─────────────────────────────┘ │  │
+│  │  └─────────────┘  └─────────────┘                                   │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │                    Core Infrastructure                                │  │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────┐  │  │
+│  │  │ Database │ │  Cache   │ │  Vector  │ │  Search  │ │ Model │  │  │
+│  │  │  MySQL   │ │  Redis   │ │  Milvus  │ │ Elastic  │ │ Proxy│  │  │
+│  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────┘  │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Project Repository Overview
+
+The Nuwax AI Agent Platform consists of multiple interconnected repositories:
+
+#### **Frontend & Mobile**
+
+| Repository | Description | URL |
+| --- | --- | --- |
+| **nuwax** | Frontend Web | [https://github.com/nuwax-ai/nuwax](https://github.com/nuwax-ai/nuwax) |
+| **nuwax-mobile** | Mobile Application | [https://github.com/nuwax-ai/nuwax-mobile](https://github.com/nuwax-ai/nuwax-mobile) |
+| **noVNC** | Web-based VNC Client | [https://github.com/nuwax-ai/noVNC](https://github.com/nuwax-ai/noVNC) |
+
+#### **Backend & Application Layer**
+
+| Repository | Description | URL |
+| --- | --- | --- |
+| **nuwax-backend** | Application Layer (Backend) | [https://github.com/nuwax-ai/nuwax-backend](https://github.com/nuwax-ai/nuwax-backend) |
+
+#### **Agent Engine & Clients**
+
+| Repository | Description | URL |
+| --- | --- | --- |
+| **nuwaclaw** | Agent PC Client (mac/win/docker) | [https://github.com/nuwax-ai/nuwaclaw](https://github.com/nuwax-ai/nuwaclaw) |
+| **nuwaxcode** | Nuwa Agent Engine (based on open-source opencode) | [https://github.com/nuwax-ai/nuwaxcode](https://github.com/nuwax-ai/nuwaxcode) |
+| **claude-code-acp-ts** | Claude Code ACP based on Zed | [https://github.com/nuwax-ai/claude-code-acp-ts](https://github.com/nuwax-ai/claude-code-acp-ts) |
+
+#### **Infrastructure & Services**
+
+| Repository | Description | URL |
+| --- | --- | --- |
+| **rcoder** | Sandbox & Container Scheduling (includes General Agent Engine) | [https://github.com/nuwax-ai/rcoder](https://github.com/nuwax-ai/rcoder) |
+| **mcp-proxy** | MCP Service (used by nuwaclaw and sandbox) | [https://github.com/nuwax-ai/mcp-proxy](https://github.com/nuwax-ai/mcp-proxy) |
+| **nuwax-file-server** | File Service (used by sandbox and nuwaclaw, includes skill sync) | [https://github.com/nuwax-ai/nuwax-file-server](https://github.com/nuwax-ai/nuwax-file-server) |
+
+#### **Web Application Development**
+
+| Repository | Description | URL |
+| --- | --- | --- |
+| **xagi-frontend-templates** | Web Application Development Templates | [https://github.com/nuwax-ai/xagi-frontend-templates](https://github.com/nuwax-ai/xagi-frontend-templates) |
+| **vite-plugin-design-mode** | Visual Editor Vite Plugin | [https://github.com/nuwax-ai/vite-plugin-design-mode](https://github.com/nuwax-ai/vite-plugin-design-mode) |
+| **dev-inject** | Web Application Smart Script Injection | [https://github.com/nuwax-ai/dev-inject](https://github.com/nuwax-ai/dev-inject) |
+
+#### **Plugin & Script Execution**
+
+| Repository | Description | URL |
+| --- | --- | --- |
+| **run_code_rmcp** | Plugin Script Execution (TypeScript/JavaScript/Python) | [https://github.com/nuwax-ai/run_code_rmcp](https://github.com/nuwax-ai/run_code_rmcp) |
+
+#### **Network & Utilities**
+
+| Repository | Description | URL |
+| --- | --- | --- |
+| **lanproxy-go-client** | Network Tunnel Client (used by nuwaclaw) | [https://github.com/ffay/lanproxy-go-client](https://github.com/ffay/lanproxy-go-client) |
+
 ### Agent Platform Frontend
 
 [中文文档](docs/ch/front-project.md) |[English Doc](docs/en/front-project.md)
