@@ -26,6 +26,7 @@
 
 import { AgentComponentTypeEnum } from '@/types/enums/agent';
 import type { Page } from '@/types/interfaces/request';
+import classNames from 'classnames';
 import React, {
   useCallback,
   useEffect,
@@ -48,6 +49,8 @@ import type {
   TabConfig,
   TabType,
 } from './types';
+
+const cx = classNames.bind(styles);
 
 /**
  * Tab 配置列表
@@ -651,18 +654,27 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
             currentItems.map((item: MentionItem, index) => (
               <div
                 key={item.id}
-                className={`${styles['mention-item']} ${
+                className={`${styles['mention-item']} overflow-hide ${
                   index === selectedIndex ? styles.selected : ''
                 }`}
                 onClick={() => onSelect(item)}
                 onMouseMove={() => handleItemMouseMove(index)}
               >
-                {/* 图标 */}
+                {/* 左侧图标 */}
                 <span className={styles['mention-item-icon']}>
-                  <img src={item.icon} alt="" />
+                  <img src={item.icon} alt={item.name} />
                 </span>
-                {/* 名称 */}
-                <span className={styles['mention-item-name']}>{item.name}</span>
+                {/* 右侧名称 + 描述 */}
+                <div className={styles['mention-item-content']}>
+                  <div className={cx('mention-item-name', 'text-ellipsis')}>
+                    {item.name}
+                  </div>
+                  {item.description && (
+                    <div className={cx('mention-item-desc', 'text-ellipsis')}>
+                      {item.description}
+                    </div>
+                  )}
+                </div>
               </div>
             ))
           )}
