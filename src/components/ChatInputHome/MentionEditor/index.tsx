@@ -78,6 +78,13 @@ const getCaretPosition = (
   if (finalPlacement === 'down') {
     // 弹窗显示在光标下方，偏移 4px
     top = rect.bottom + 4;
+
+    // 如果弹窗高度过大，可能会超出视口底部，这里向上收缩避免撑出页面滚动条
+    const height = popupHeight ?? estimatedHeight;
+    const maxTop = viewportHeight - height - 4;
+    if (top > maxTop) {
+      top = Math.max(4, maxTop);
+    }
   } else {
     // 弹窗显示在光标上方，将底边尽量贴近光标上方 4px 位置
     const height = popupHeight ?? estimatedHeight;
