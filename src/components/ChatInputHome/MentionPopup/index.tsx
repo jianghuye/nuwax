@@ -123,8 +123,6 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
       onClose,
       // 搜索文本（由外部通过 @ 后输入的内容控制）
       searchText,
-      selectedIndex: externalSelectedIndex,
-      onSelectedIndexChange,
       onHeightChange,
     },
     ref,
@@ -132,9 +130,8 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
     // ==================== State ====================
     /** 当前激活的 Tab */
     const [activeTab, setActiveTab] = useState<TabType>('recent');
-    /** 内部选中索引（当外部未控制时使用） */
-    const [internalSelectedIndex, setInternalSelectedIndex] =
-      useState<number>(0);
+    /** 当前选中项索引（仅内部状态） */
+    const [selectedIndex, setSelectedIndex] = useState<number>(0);
     /** 各 Tab 对应的分页数据 */
     const [tabDataMap, setTabDataMap] = useState<Record<TabType, TabDataState>>(
       createTabDataState(),
@@ -146,26 +143,7 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
     /** 列表容器引用，用于滚动加载下一页 */
     const listRef = useRef<HTMLDivElement>(null);
 
-    // ==================== 计算属性 ====================
-    /** 选中索引（优先使用外部控制） */
-    const selectedIndex = externalSelectedIndex ?? internalSelectedIndex;
-
     // ==================== 事件处理 ====================
-
-    /**
-     * 更新选中索引
-     * 支持内部和外部控制两种模式
-     */
-    const updateSelectedIndex = useCallback(
-      (index: number) => {
-        if (onSelectedIndexChange) {
-          onSelectedIndexChange(index);
-        } else {
-          setInternalSelectedIndex(index);
-        }
-      },
-      [onSelectedIndexChange],
-    );
 
     const updateTabDataState = useCallback(
       (tab: TabType, updater: (prev: TabDataState) => TabDataState) => {
@@ -363,10 +341,10 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
     useEffect(() => {
       return () => {
         setActiveTab('recent');
-        updateSelectedIndex(0);
+        setSelectedIndex(0);
         setTabDataMap(createTabDataState());
       };
-    }, [visible, updateSelectedIndex]);
+    }, [visible]);
 
     /**
      * 当前 Tab 尚未初始化时才触发第一页加载
@@ -405,9 +383,9 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
      */
     useEffect(() => {
       if (selectedIndex >= currentItems.length && currentItems.length > 0) {
-        updateSelectedIndex(currentItems.length - 1);
+        setSelectedIndex(currentItems.length - 1);
       }
-    }, [currentItems.length, selectedIndex, updateSelectedIndex]);
+    }, [currentItems.length, selectedIndex]);
 
     /**
      * 自动滚动到选中项
@@ -441,11 +419,11 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
      */
     const handleArrowUp = useCallback(() => {
       if (selectedIndex <= 0) {
-        updateSelectedIndex(0);
+        setSelectedIndex(0);
       } else {
-        updateSelectedIndex(selectedIndex - 1);
+        setSelectedIndex(selectedIndex - 1);
       }
-    }, [selectedIndex, updateSelectedIndex]);
+    }, [selectedIndex]);
 
     /**
      * 向下移动选中项
@@ -454,12 +432,12 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
     const handleArrowDown = useCallback(() => {
       if (selectedIndex >= currentItems.length - 1) {
         // 在列表最后一项，循环到第一项
-        updateSelectedIndex(0);
+        setSelectedIndex(0);
       } else {
         // 向下移动
-        updateSelectedIndex(selectedIndex + 1);
+        setSelectedIndex(selectedIndex + 1);
       }
-    }, [selectedIndex, currentItems.length, updateSelectedIndex]);
+    }, [selectedIndex, currentItems.length]);
 
     /**
      * 向左切换 Tab
@@ -468,8 +446,8 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
       const currentIndex = TABS.findIndex((tab) => tab.key === activeTab);
       const newIndex = currentIndex <= 0 ? TABS.length - 1 : currentIndex - 1;
       setActiveTab(TABS[newIndex].key);
-      updateSelectedIndex(0);
-    }, [activeTab, updateSelectedIndex]);
+      setSelectedIndex(0);
+    }, [activeTab]);
 
     /**
      * 向右切换 Tab
@@ -478,15 +456,15 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
       const currentIndex = TABS.findIndex((tab) => tab.key === activeTab);
       const newIndex = currentIndex >= TABS.length - 1 ? 0 : currentIndex + 1;
       setActiveTab(TABS[newIndex].key);
-      updateSelectedIndex(0);
-    }, [activeTab, updateSelectedIndex]);
+      setSelectedIndex(0);
+    }, [activeTab]);
 
     /**
      * 重置选中索引为 0
      */
     const resetSelectedIndex = useCallback(() => {
-      updateSelectedIndex(0);
-    }, [updateSelectedIndex]);
+      setSelectedIndex(0);
+    }, []);
 
     // 通过 useImperativeHandle 暴露方法
     useImperativeHandle(ref, () => ({
@@ -503,16 +481,13 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
     /**
      * 处理 Tab 切换（点击时）
      */
-    const handleTabChange = useCallback(
-      (tab: TabType) => {
-        setActiveTab(tab);
-        updateSelectedIndex(0);
-        if (listRef.current) {
-          listRef.current.scrollTop = 0;
-        }
-      },
-      [updateSelectedIndex],
-    );
+    const handleTabChange = useCallback((tab: TabType) => {
+      setActiveTab(tab);
+      setSelectedIndex(0);
+      if (listRef.current) {
+        listRef.current.scrollTop = 0;
+      }
+    }, []);
 
     /**
      * 鼠标在列表项上移动时同步选中项
@@ -521,10 +496,10 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
     const handleItemMouseMove = useCallback(
       (index: number) => {
         if (selectedIndex !== index) {
-          updateSelectedIndex(index);
+          setSelectedIndex(index);
         }
       },
-      [selectedIndex, updateSelectedIndex],
+      [selectedIndex],
     );
 
     /**
@@ -589,7 +564,6 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
         handleArrowLeft,
         handleArrowRight,
         handleSelectCurrentItem,
-        updateSelectedIndex,
         onClose,
       ],
     );

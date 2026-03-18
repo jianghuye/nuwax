@@ -140,12 +140,6 @@ export interface MentionPopupProps {
   onClose: () => void;
   /** 搜索文本（受控模式） */
   searchText?: string;
-  /** 搜索文本变化时的回调（受控模式） */
-  onSearchChange?: (text: string) => void;
-  /** 当前选中项索引（受控模式） */
-  selectedIndex?: number;
-  /** 选中项索引变化时的回调（受控模式） */
-  onSelectedIndexChange?: (index: number) => void;
   /** 弹窗内容高度变化时的回调（用于外部重新定位弹窗） */
   onHeightChange?: (height: number) => void;
 }

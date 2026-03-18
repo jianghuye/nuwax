@@ -342,8 +342,6 @@ const MentionEditor = React.forwardRef<MentionEditorHandle, MentionEditorProps>(
     const [mentionSearchText, setMentionSearchText] = useState<string>('');
     /** 已选中的提及项列表 */
     const [selectedMentions, setSelectedMentions] = useState<MentionItem[]>([]);
-    /** 弹窗中当前选中项的索引 */
-    const [selectedIndex, setSelectedIndex] = useState<number>(0);
     /** 编辑器是否为空，用于稳定控制 placeholder 显示 */
     const [isEditorEmpty, setIsEditorEmpty] = useState<boolean>(true);
     /** 当前 MentionPopup 实际高度（用于向上展开时将弹窗底边贴近光标） */
@@ -517,7 +515,6 @@ const MentionEditor = React.forwardRef<MentionEditorHandle, MentionEditorProps>(
     const closeMentionPopup = useCallback(() => {
       setShowMentionPopup(false);
       setMentionSearchText('');
-      setSelectedIndex(0);
       mentionAtIndexRef.current = -1;
       savedRangeRef.current = null;
       savedTextNodeRef.current = null;
@@ -1197,8 +1194,6 @@ const MentionEditor = React.forwardRef<MentionEditorHandle, MentionEditorProps>(
             onSelect={handleMentionSelect}
             onClose={closeMentionPopup}
             searchText={mentionSearchText}
-            selectedIndex={selectedIndex}
-            onSelectedIndexChange={setSelectedIndex}
             onHeightChange={handlePopupHeightChange}
           />
         </div>
