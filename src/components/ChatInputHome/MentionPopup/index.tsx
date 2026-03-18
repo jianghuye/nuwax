@@ -235,6 +235,7 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
         const records = (response?.data || []) as SkillInfoForAt[];
 
         handleTabDataResponse('recent', page, records);
+        return records.length > 0;
       },
       [searchText, handleTabDataResponse],
     );
@@ -252,6 +253,7 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
         const records = (response?.data || []) as SkillInfoForAt[];
 
         handleTabDataResponse('favorite', page, records);
+        return records.length > 0;
       },
       [searchText, handleTabDataResponse],
     );
@@ -284,6 +286,7 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
           hasMore:
             total > 0 ? page * PAGE_SIZE < total : records.length >= PAGE_SIZE,
         }));
+        return records.length > 0 || total > 0;
       },
       [searchText, updateTabDataState],
     );
@@ -295,7 +298,7 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
     const loadTabData = useCallback(
       async (tab: TabType, page: number = 1) => {
         if (!visible) {
-          return;
+          return false;
         }
 
         // 这里不再依赖外部的 tabDataMap，避免因 loading 状态变更导致的死循环请求
@@ -305,13 +308,15 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
         }));
 
         try {
+          let hasData = false;
           if (tab === 'recent') {
-            await loadRecentTabData(page);
+            hasData = await loadRecentTabData(page);
           } else if (tab === 'favorite') {
-            await loadFavoriteTabData(page);
+            hasData = await loadFavoriteTabData(page);
           } else {
-            await loadAllTabData(page);
+            hasData = await loadAllTabData(page);
           }
+          return hasData;
         } catch (error) {
           console.error(`加载 MentionPopup ${tab} 数据失败:`, error);
           updateTabDataState(tab, (prev) => ({
@@ -322,6 +327,7 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
             items: page === 1 ? [] : prev.items,
             total: page === 1 ? 0 : prev.total,
           }));
+          return false;
         }
       },
       [
@@ -331,6 +337,23 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
         updateTabDataState,
         visible,
       ],
+    );
+
+    /**
+     * 处理 Tab 切换（点击时）
+     */
+    const handleTabChange = useCallback(
+      (tab: TabType) => {
+        setActiveTab(tab);
+        setSelectedIndex(0);
+        if (listRef.current) {
+          listRef.current.scrollTop = 0;
+        }
+
+        // 每次切换 Tab 都重新加载当前 Tab 的第一页数据
+        loadTabData(tab, 1);
+      },
+      [loadTabData],
     );
 
     // ==================== Effects ====================
@@ -347,16 +370,35 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
     }, [visible]);
 
     /**
-     * 当前 Tab 变化时触发第一页加载
-     * 始终以最新搜索词和 Tab 状态重新拉取数据
+     * 弹窗首次打开时，按 Tab 顺序尝试加载数据
+     * 1. 先加载「最近使用」，如果有数据则停在该 Tab
+     * 2. 若无数据，再加载「我的收藏」，有数据则停在该 Tab
+     * 3. 若仍无数据，最后加载「全部」
      */
     useEffect(() => {
       if (!visible) {
         return;
       }
 
-      loadTabData(activeTab, 1);
-    }, [activeTab, loadTabData, visible]);
+      let cancelled = false;
+
+      const initTabs = async () => {
+        for (const tab of TABS) {
+          const hasData = await loadTabData(tab.key, 1);
+          if (cancelled) return;
+          if (hasData) {
+            setActiveTab(tab.key);
+            break;
+          }
+        }
+      };
+
+      initTabs();
+
+      return () => {
+        cancelled = true;
+      };
+    }, [loadTabData, visible]);
 
     /**
      * 当弹窗可见且 Tab 或列表内容发生变化时，通知外部“高度可能改变”
@@ -445,9 +487,8 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
     const handleArrowLeft = useCallback(() => {
       const currentIndex = TABS.findIndex((tab) => tab.key === activeTab);
       const newIndex = currentIndex <= 0 ? TABS.length - 1 : currentIndex - 1;
-      setActiveTab(TABS[newIndex].key);
-      setSelectedIndex(0);
-    }, [activeTab]);
+      handleTabChange(TABS[newIndex].key);
+    }, [activeTab, handleTabChange]);
 
     /**
      * 向右切换 Tab
@@ -455,9 +496,8 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
     const handleArrowRight = useCallback(() => {
       const currentIndex = TABS.findIndex((tab) => tab.key === activeTab);
       const newIndex = currentIndex >= TABS.length - 1 ? 0 : currentIndex + 1;
-      setActiveTab(TABS[newIndex].key);
-      setSelectedIndex(0);
-    }, [activeTab]);
+      handleTabChange(TABS[newIndex].key);
+    }, [activeTab, handleTabChange]);
 
     /**
      * 重置选中索引为 0
@@ -477,17 +517,6 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
     }));
 
     // ==================== 内部事件处理 ====================
-
-    /**
-     * 处理 Tab 切换（点击时）
-     */
-    const handleTabChange = useCallback((tab: TabType) => {
-      setActiveTab(tab);
-      setSelectedIndex(0);
-      if (listRef.current) {
-        listRef.current.scrollTop = 0;
-      }
-    }, []);
 
     /**
      * 鼠标在列表项上移动时同步选中项
