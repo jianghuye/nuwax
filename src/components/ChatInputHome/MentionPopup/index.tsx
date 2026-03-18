@@ -59,9 +59,9 @@ const cx = classNames.bind(styles);
  * 默认优先展示「最近使用」，将「全部」放在最后
  */
 const TABS: TabConfig[] = [
+  { key: 'all', label: '全部' },
   { key: 'recent', label: '最近使用' },
   { key: 'favorite', label: '我的收藏' },
-  { key: 'all', label: '全部' },
 ];
 
 /** 单个 Tab 每次请求或分页追加的数量 */
@@ -121,15 +121,15 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
       position,
       onSelect,
       onClose,
-      // 搜索文本（由外部通过 @ 后输入的内容控制）
       searchText,
+      maxHeight,
       onHeightChange,
     },
     ref,
   ) => {
     // ==================== State ====================
     /** 当前激活的 Tab */
-    const [activeTab, setActiveTab] = useState<TabType>('recent');
+    const [activeTab, setActiveTab] = useState<TabType>('all');
     /** 当前选中项索引（仅内部状态） */
     const [selectedIndex, setSelectedIndex] = useState<number>(0);
     /** 各 Tab 对应的分页数据 */
@@ -142,6 +142,12 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
     const containerRef = useRef<HTMLDivElement>(null);
     /** 列表容器引用，用于滚动加载下一页 */
     const listRef = useRef<HTMLDivElement>(null);
+    /** 是否已在本次弹窗打开时执行过首次加载（只加载当前 Tab 第一页） */
+    const hasInitTabsRef = useRef<boolean>(false);
+    /** 上一次已用于请求的搜索关键字，关键字变化时仅刷新当前 Tab */
+    const lastSearchTextRef = useRef<string>('');
+    /** 在最后一项按向下键触发加载更多后，待加载完成时要选中的索引（新一页的第一项） */
+    const pendingSelectIndexAfterLoadRef = useRef<number | null>(null);
 
     // ==================== 事件处理 ====================
 
@@ -161,11 +167,20 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
      */
     /**
      * 计算当前显示的列表项
-     * 根据当前 Tab 和搜索文本过滤
+     * - All Tab：直接使用接口返回的列表（后端搜索）
+     * - 最近使用 / 我的收藏：仅做本地过滤，不因 searchText 请求后端
      */
     const currentItems = useMemo(() => {
-      return tabDataMap[activeTab].items;
-    }, [activeTab, tabDataMap]);
+      const items = tabDataMap[activeTab].items;
+      if (activeTab === 'all') return items;
+      const kw = (searchText ?? '').trim().toLowerCase();
+      if (!kw) return items;
+      return items.filter(
+        (item) =>
+          item.name.toLowerCase().includes(kw) ||
+          (item.description?.toLowerCase().includes(kw) ?? false),
+      );
+    }, [activeTab, tabDataMap, searchText]);
 
     const activeTabData = useMemo(() => {
       return tabDataMap[activeTab];
@@ -235,7 +250,6 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
         const records = (response?.data || []) as SkillInfoForAt[];
 
         handleTabDataResponse('recent', page, records);
-        return records.length > 0;
       },
       [searchText, handleTabDataResponse],
     );
@@ -253,7 +267,6 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
         const records = (response?.data || []) as SkillInfoForAt[];
 
         handleTabDataResponse('favorite', page, records);
-        return records.length > 0;
       },
       [searchText, handleTabDataResponse],
     );
@@ -286,7 +299,6 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
           hasMore:
             total > 0 ? page * PAGE_SIZE < total : records.length >= PAGE_SIZE,
         }));
-        return records.length > 0 || total > 0;
       },
       [searchText, updateTabDataState],
     );
@@ -297,26 +309,21 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
      */
     const loadTabData = useCallback(
       async (tab: TabType, page: number = 1) => {
-        if (!visible) {
-          return false;
-        }
+        if (!visible) return;
 
-        // 这里不再依赖外部的 tabDataMap，避免因 loading 状态变更导致的死循环请求
         updateTabDataState(tab, (prev) => ({
           ...prev,
           loading: true,
         }));
 
         try {
-          let hasData = false;
           if (tab === 'recent') {
-            hasData = await loadRecentTabData(page);
+            await loadRecentTabData(page);
           } else if (tab === 'favorite') {
-            hasData = await loadFavoriteTabData(page);
+            await loadFavoriteTabData(page);
           } else {
-            hasData = await loadAllTabData(page);
+            await loadAllTabData(page);
           }
-          return hasData;
         } catch (error) {
           console.error(`加载 MentionPopup ${tab} 数据失败:`, error);
           updateTabDataState(tab, (prev) => ({
@@ -327,7 +334,6 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
             items: page === 1 ? [] : prev.items,
             total: page === 1 ? 0 : prev.total,
           }));
-          return false;
         }
       },
       [
@@ -341,6 +347,12 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
 
     /**
      * 处理 Tab 切换（点击时）
+     *
+     * 行为：
+     * - 总是切换激活 Tab，并重置选中项与滚动位置
+     * - 仅当目标 Tab 还未初始化（initialized === false）时才加载第一页数据
+     *   - 已加载过的 Tab 再次切换过去时直接使用本地缓存，不重复请求
+     * - All Tab 的滚动分页能力不受影响，仍由 handleListScroll + hasMore 控制
      */
     const handleTabChange = useCallback(
       (tab: TabType) => {
@@ -350,10 +362,12 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
           listRef.current.scrollTop = 0;
         }
 
-        // 每次切换 Tab 都重新加载当前 Tab 的第一页数据
-        loadTabData(tab, 1);
+        const tabState = tabDataMap[tab];
+        if (!tabState || !tabState.initialized) {
+          loadTabData(tab, 1);
+        }
       },
-      [loadTabData],
+      [loadTabData, tabDataMap],
     );
 
     // ==================== Effects ====================
@@ -363,67 +377,83 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
      */
     useEffect(() => {
       return () => {
-        setActiveTab('recent');
+        setActiveTab('all');
         setSelectedIndex(0);
         setTabDataMap(createTabDataState());
+        /**
+         * 弹窗关闭时重置首次加载标记与搜索关键字标记
+         */
+        hasInitTabsRef.current = false;
+        lastSearchTextRef.current = '';
       };
     }, [visible]);
 
     /**
-     * 弹窗首次打开时，按 Tab 顺序尝试加载数据
-     * 1. 先加载「最近使用」，如果有数据则停在该 Tab
-     * 2. 若无数据，再加载「我的收藏」，有数据则停在该 Tab
-     * 3. 若仍无数据，最后加载「全部」
+     * 弹窗首次打开时，只加载当前 Tab 的第一页数据（仅执行一次，不轮询其他 Tab）
      */
     useEffect(() => {
-      if (!visible) {
-        return;
+      if (!visible || hasInitTabsRef.current) return;
+
+      hasInitTabsRef.current = true;
+      lastSearchTextRef.current = searchText ?? '';
+      loadTabData(activeTab, 1);
+    }, [activeTab, loadTabData, visible]);
+
+    /**
+     * 弹窗已打开后：搜索关键字变化时
+     * - 当前为 All Tab：请求后端搜索（刷新当前 Tab 第一页）
+     * - 当前为最近使用 / 我的收藏：不请求后端，仅依赖 currentItems 的本地过滤
+     */
+    useEffect(() => {
+      if (!visible || !hasInitTabsRef.current) return;
+      const currentSearch = searchText ?? '';
+      if (currentSearch === lastSearchTextRef.current) return;
+      lastSearchTextRef.current = currentSearch;
+      if (activeTab === 'all') {
+        loadTabData('all', 1);
       }
-
-      let cancelled = false;
-
-      const initTabs = async () => {
-        for (const tab of TABS) {
-          const hasData = await loadTabData(tab.key, 1);
-          if (cancelled) return;
-          if (hasData) {
-            setActiveTab(tab.key);
-            break;
-          }
-        }
-      };
-
-      initTabs();
-
-      return () => {
-        cancelled = true;
-      };
-    }, [loadTabData, visible]);
+    }, [visible, searchText, activeTab, loadTabData]);
 
     /**
-     * 当弹窗可见且 Tab 或列表内容发生变化时，通知外部“高度可能改变”
-     * 由外部统一重新计算弹窗与光标之间的位置关系
+     * 使用 ResizeObserver 在弹窗实际尺寸变化时上报高度，确保父组件用真实渲染高度重算位置，
+     * 避免切换 Tab 后弹窗变高但位置未更新导致弹窗底边超出光标
      */
     useEffect(() => {
-      if (!visible || !containerRef.current) return;
-      const height = containerRef.current.offsetHeight ?? 0;
-      onHeightChange?.(height);
-    }, [visible, currentItems.length]);
+      if (!visible || !onHeightChange || !containerRef.current) return;
+      const el = containerRef.current;
+
+      const reportHeight = () => {
+        const height = el.offsetHeight ?? 0;
+        if (height > 0) onHeightChange(height);
+      };
+
+      reportHeight();
+      const observer = new ResizeObserver(() => reportHeight());
+      observer.observe(el);
+      return () => observer.disconnect();
+    }, [visible, onHeightChange]);
 
     /**
-     * 切换 Tab 或搜索词后，将列表滚动条重置到顶部
-     * 避免新结果仍停留在旧滚动位置，影响阅读
+     * 切换 Tab 或搜索词后，将列表滚动条重置到顶部，并清除「加载更多后待选中」的标记
      */
     useEffect(() => {
+      pendingSelectIndexAfterLoadRef.current = null;
       if (listRef.current) {
         listRef.current.scrollTop = 0;
       }
     }, [activeTab, searchText]);
 
     /**
-     * 当列表项数量变化时，确保选中索引不越界
+     * 当列表项数量变化时，确保选中索引不越界；
+     * 若存在「按向下键触发的加载更多」待选中的索引，则选中该索引（新一页的第一项）
      */
     useEffect(() => {
+      const pending = pendingSelectIndexAfterLoadRef.current;
+      if (pending !== null && currentItems.length > pending) {
+        pendingSelectIndexAfterLoadRef.current = null;
+        setSelectedIndex(pending);
+        return;
+      }
       if (selectedIndex >= currentItems.length && currentItems.length > 0) {
         setSelectedIndex(currentItems.length - 1);
       }
@@ -469,17 +499,42 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
 
     /**
      * 向下移动选中项
-     * 到达最后一项后循环到第一项
+     *
+     * 行为说明：
+     * - 不是最后一项时：正常向下移动一项
+     * - 在最后一项且还有更多分页时：
+     *   - 记录「加载完成后要选中的索引」为当前列表长度（新一页的第一项）
+     *   - 如果当前未在加载，则主动触发加载下一页
+     *   - 保持当前仍选中最后一项，等待数据回来后自动跳到新一页第一项
+     * - 在最后一项且没有更多分页时：循环到第一项
      */
     const handleArrowDown = useCallback(() => {
-      if (selectedIndex >= currentItems.length - 1) {
-        // 在列表最后一项，循环到第一项
-        setSelectedIndex(0);
-      } else {
-        // 向下移动
+      if (selectedIndex < currentItems.length - 1) {
         setSelectedIndex(selectedIndex + 1);
+        return;
       }
-    }, [selectedIndex, currentItems.length]);
+
+      // 已在最后一项
+      if (activeTabData.hasMore) {
+        // 标记：加载完成后自动选中新一页第一项
+        pendingSelectIndexAfterLoadRef.current = currentItems.length;
+        // 如果当前不在加载中，则由这里触发下一页加载；
+        // 若已经在加载（例如滚动触发了加载更多），则只需等待加载完成即可
+        if (!activeTabData.loading) {
+          loadTabData(activeTab, activeTabData.page + 1);
+        }
+        return;
+      }
+
+      // 没有更多分页，循环回到第一项
+      setSelectedIndex(0);
+    }, [
+      selectedIndex,
+      currentItems.length,
+      activeTab,
+      activeTabData,
+      loadTabData,
+    ]);
 
     /**
      * 向左切换 Tab
@@ -612,6 +667,7 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
           position: 'fixed',
           top: position.top,
           left: position.left,
+          ...(!!maxHeight && { maxHeight }),
         }}
         onMouseDown={(e) => {
           // 阻止点击弹窗内容时让编辑器失焦，否则会触发外层 blur 关闭弹窗

@@ -140,6 +140,8 @@ export interface MentionPopupProps {
   onClose: () => void;
   /** 搜索文本（受控模式） */
   searchText?: string;
+  /** 弹窗最大高度（由外部根据视口可用空间传入，避免撑出页面滚动条导致左右闪动） */
+  maxHeight?: number;
   /** 弹窗内容高度变化时的回调（用于外部重新定位弹窗） */
   onHeightChange?: (height: number) => void;
 }
@@ -181,7 +183,7 @@ export interface MentionEditorProps {
   /** 按下回车键时的回调（用于发送消息） */
   onPressEnter?: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   /** 粘贴时的回调（用于处理图片粘贴） */
-  onPaste?: (e: React.ClipboardEvent<HTMLDivElement>) => void;
+  onPaste: (e: React.ClipboardEvent<HTMLDivElement>) => void;
   /** 占位符文本 */
   placeholder?: string;
   /** 是否在渲染后自动获取焦点，默认 true */
