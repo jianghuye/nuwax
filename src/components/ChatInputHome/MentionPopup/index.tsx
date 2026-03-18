@@ -347,8 +347,8 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
     }, [visible]);
 
     /**
-     * 当前 Tab 尚未初始化时才触发第一页加载
-     * 避免同一个 Tab 在同一轮状态下重复请求
+     * 当前 Tab 变化时触发第一页加载
+     * 始终以最新搜索词和 Tab 状态重新拉取数据
      */
     useEffect(() => {
       if (!visible) {
@@ -654,9 +654,11 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
               </div>
             ))
           )}
-          {activeTabData.loading && currentItems.length > 0 && (
-            <div className={styles['mention-empty']}>加载更多中...</div>
-          )}
+          {activeTabData.loading &&
+            activeTabData.page > 1 &&
+            currentItems.length > 0 && (
+              <div className={styles['mention-empty']}>加载更多中...</div>
+            )}
         </div>
       </div>
     );
