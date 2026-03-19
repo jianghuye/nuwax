@@ -24,6 +24,7 @@
  * ```
  */
 
+import { SUCCESS_CODE } from '@/constants/codes.constants';
 import { AgentComponentTypeEnum } from '@/types/enums/agent';
 import type { Page } from '@/types/interfaces/request';
 import { SearchOutlined } from '@ant-design/icons';
@@ -250,9 +251,12 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
       const response = await runRecentTabData({
         targetType: AgentComponentTypeEnum.Skill,
       });
-      const records = (response?.data || []) as SkillInfoForAt[];
 
-      handleTabDataResponse('recent', records);
+      if (response?.code === SUCCESS_CODE) {
+        const records = (response?.data || []) as SkillInfoForAt[];
+
+        handleTabDataResponse('recent', records);
+      }
     }, [handleTabDataResponse]);
 
     /**
@@ -263,9 +267,12 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
       const response = await runFavoriteTabData({
         targetType: AgentComponentTypeEnum.Skill,
       });
-      const records = (response?.data || []) as SkillInfoForAt[];
 
-      handleTabDataResponse('favorite', records);
+      if (response?.code === SUCCESS_CODE) {
+        const records = (response?.data || []) as SkillInfoForAt[];
+
+        handleTabDataResponse('favorite', records);
+      }
     }, [handleTabDataResponse]);
 
     /**
@@ -282,21 +289,26 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
         };
 
         const response = await runAllTabData(requestParams);
-        const pageData = (response?.data || {}) as Page<SkillInfoForAt>;
-        const records = pageData.records || [];
-        const total = pageData.total || records.length;
 
-        updateTabDataState('all', (prev) => ({
-          ...prev,
-          items: page === 1 ? records : [...prev.items, ...records],
-          page,
-          total,
-          loading: false,
-          initialized: true,
-          hasMore:
-            total > 0 ? page * PAGE_SIZE < total : records.length >= PAGE_SIZE,
-          loadedWithSearchText: effectiveSearchText ?? '',
-        }));
+        if (response?.code === SUCCESS_CODE) {
+          const pageData = (response?.data || {}) as Page<SkillInfoForAt>;
+          const records = pageData.records || [];
+          const total = pageData.total || records.length;
+
+          updateTabDataState('all', (prev) => ({
+            ...prev,
+            items: page === 1 ? records : [...prev.items, ...records],
+            page,
+            total,
+            loading: false,
+            initialized: true,
+            hasMore:
+              total > 0
+                ? page * PAGE_SIZE < total
+                : records.length >= PAGE_SIZE,
+            loadedWithSearchText: effectiveSearchText ?? '',
+          }));
+        }
       },
       [effectiveSearchText, updateTabDataState],
     );
@@ -323,11 +335,11 @@ const MentionPopup = React.forwardRef<MentionPopupHandle, MentionPopupProps>(
             await loadAllTabData(page);
           }
         } catch (error) {
-          console.error(`加载 MentionPopup ${tab} 数据失败:`, error);
+          console.log(`加载 MentionPopup ${tab} 数据失败:`, error);
           updateTabDataState(tab, (prev) => ({
             ...prev,
             loading: false,
-            initialized: true,
+            initialized: false,
             hasMore: false,
             items: page === 1 ? [] : prev.items,
             total: page === 1 ? 0 : prev.total,
